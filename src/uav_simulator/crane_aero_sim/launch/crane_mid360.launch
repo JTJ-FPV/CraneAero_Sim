@@ -1,0 +1,142 @@
+<launch>
+    <arg name="drone_id" value = "1"/>
+    <arg name="uav_num" value = "1"/>
+
+    <arg name="map_size_x" value="100.0"/>
+    <arg name="map_size_y" value="100.0"/>
+    <arg name="map_size_z" value="10.0"/>
+    <arg name="init_x" value="-25"/>
+    <arg name="init_y" value="0.0"/>
+    <arg name="init_z" value="3.0"/> 
+
+    <arg name="odometry_topic" value="/coaxial_1/simulator/odom"/>
+
+    <arg name="map_name" value="$(find map_generator)/resource/small_forest01cutoff.pcd"/>
+    <arg name="downsample_resolution" value="0.1"/>
+
+    <arg name="use_uav_extra_model" value = "0"/>
+
+   <node pkg="map_generator" name="map_pub" type="map_pub" output="screen"
+         args="$(arg map_name)">
+        <param name="add_boundary" value="0"/>
+        <param name="is_bridge" value="0"/>
+        <param name="downsample_res" value="$(arg downsample_resolution)"/>         
+        <param name="map_offset_x" value="0.0"/>   
+        <param name="map_offset_y" value="0.0"/>   
+        <param name="map_offset_z" value="0.0"/>   
+   </node>
+
+    <node pkg="crane_aero_sim" name="coaxial_dynamics_$(arg drone_id)" type="crane_control_node" output="screen">
+        <remap from="~odom" to="/coaxial_$(arg drone_id)/simulator/odom"/>
+        <remap from="~cmd_rpm" to="/coaxial_$(arg drone_id)/cmd_rpm"/>
+        <param name="mass"   value="460"/>
+        <param name="simulation_rate"   value="500"/>
+        <param name="coaxial_name"   value="coaxial_x8_$(arg drone_id)"/>
+        <param name="init_state_x"   value="$(arg init_x)"/>
+        <param name="init_state_y"   value="$(arg init_y)"/>
+        <param name="init_state_z"   value="$(arg init_z)"/>
+    </node>
+
+    <node pkg="crane_aero_sim" name="visualizer_node" type="visualizer_node" output="screen">
+        <remap from="~odom" to="/coaxial_$(arg drone_id)/simulator/odom"/>
+        <remap from="~cmd_rpm" to="/coaxial_$(arg drone_id)/cmd_rpm"/>
+        <rosparam file="$(find crane_aero_sim)/config/visualizer_config.yaml" command="load" />
+    </node>
+
+
+    <!-- <node pkg="local_sensing_lidar" type="opengl_render_node" name="coaxial_dynamics_$(arg drone_id)_pcl_render_node" output="screen" 
+                    args="$(arg map_name)">
+        <remap from="~global_map" to="/map_generator/global_cloud"/>
+        <remap from="~odometry" to="$(arg odometry_topic)"/>
+
+        <param name="drone_id" value="$(arg drone_id)"/>
+        <param name="quadrotor_name" value="coaxial_$(arg drone_id)"/>
+        <param name="uav_num" value="$(arg uav_num)"/>
+        <param name="is_360lidar" value="1"/>
+        <param name="sensing_horizon" value="15.0"/>
+        <param name="sensing_rate" value="10.0"/>
+        <param name="estimation_rate" value="10.0"/>
+        <param name="polar_resolution" value="0.2"/>
+        <param name="yaw_fov" value="360.0"/>
+        <param name="vertical_fov" value="90.0"/>
+        <param name="min_raylength" value="1.0"/>
+        <param name="livox_linestep" value="1.4"/>
+        <param name="curvature_limit" value="100.0"/>
+        <param name="hash_cubesize" value="5.0"/>
+        <param name="use_avia_pattern" value="0"/>
+        <param name="use_vlp32_pattern" value="0"/>
+        <param name="use_minicf_pattern" value="1"/>
+
+        <param name="downsample_res" value="$(arg downsample_resolution)"/>
+
+        <param name="dynobj_enable" value="0"/>
+        <param name="dynobject_size" value="0.8"/>
+        <param name="dynobject_num" value="10"/>
+        <param name="dyn_mode" value="0"/>
+        <param name="dyn_velocity" value="1.0"/>
+
+        <param name="use_uav_extra_model" value="$(arg use_uav_extra_model)"/>
+
+        <param name="collisioncheck_enable" value="0"/>
+        <param name="collision_range" value="0.3"/>
+        <param name="output_pcd" value="0"/>
+    </node> -->
+      <node pkg="local_sensing_lidar" type="opengl_render_node_dual_mid360_gpu" name="coaxial_dynamics_$(arg drone_id)_pcl_render_node" output="screen" 
+                        args="$(arg map_name)">
+            <remap from="~global_map" to="/map_generator/global_cloud"/>
+            <remap from="~odometry" to="$(arg odometry_topic)"/>
+
+            <param name="drone_id" value="$(arg drone_id)"/>
+            <param name="quadrotor_name" value="coaxial_$(arg drone_id)"/>
+            <param name="uav_num" value="$(arg uav_num)"/>
+            <param name="is_360lidar" value="1"/>
+            <param name="sensing_horizon" value="15.0"/>
+            <param name="sensing_rate" value="10.0"/>
+            <param name="estimation_rate" value="10.0"/>
+            <param name="polar_resolution" value="0.2"/>
+            <param name="yaw_fov" value="360.0"/>
+            <param name="vertical_fov" value="90.0"/>
+            <param name="min_raylength" value="1.0"/>
+            <param name="livox_linestep" value="1.4"/>
+            <param name="curvature_limit" value="100.0"/>
+            <param name="hash_cubesize" value="5.0"/>
+            <param name="use_avia_pattern" value="0"/>
+            <param name="use_vlp32_pattern" value="0"/>
+            <param name="use_minicf_pattern" value="1"/>
+
+            <rosparam param="mid360_top/xyz">[0.0, 0.0, 0.60]</rosparam>
+            <rosparam param="mid360_top/rpy_deg">[0.0, 0.0, 0.0]</rosparam>
+
+            <rosparam param="mid360_front_down/xyz">[0, 0.0, -0.60]</rosparam>
+            <rosparam param="mid360_front_down/rpy_deg">[0.0, 180.0, 0.0]</rosparam>
+
+
+            <param name="downsample_res" value="$(arg downsample_resolution)"/>
+
+            <param name="dynobj_enable" value="0"/>
+            <param name="dynobject_size" value="0.8"/>
+            <param name="dynobject_num" value="10"/>
+            <param name="dyn_mode" value="0"/>
+            <param name="dyn_velocity" value="1.0"/>
+
+            <param name="use_uav_extra_model" value="$(arg use_uav_extra_model)"/>
+
+            <param name="collisioncheck_enable" value="0"/>
+            <param name="collision_range" value="0.3"/>
+            <param name="output_pcd" value="0"/>
+      </node>
+
+    <node pkg="odom_visualization" name="odom_visualization" type="odom_visualization" output="screen">
+            <remap from="~odom" to="/coaxial_$(arg drone_id)/simulator/odom"/>
+            <param name="color/a" value="1.0"/>    
+            <param name="color/r" value="0.0"/>        
+            <param name="color/g" value="0.0"/>        
+            <param name="color/b" value="0.0"/>       
+            <param name="covariance_scale" value="100.0"/>       
+            <param name="robot_scale" value="1.0"/>
+            <param name="tf45" value="true"/>
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crane_aero_sim)/config/ego_lidar_fpv.rviz" required="true" />
+
+</launch>

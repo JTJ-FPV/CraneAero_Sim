@@ -1,0 +1,75 @@
+# ============================================================
+# X8 coaxial visualizer config  (axis-based mount)
+#
+# Frame: body {x-forward, y-left, z-up}
+# Propeller layout (matches coaxial_x8_dynamics.hpp):
+#   Pair 0 front-right : idx 0 (upper) / 1 (lower)
+#   Pair 1 rear-left   : idx 2 (upper) / 3 (lower)
+#   Pair 2 front-left  : idx 4 (upper) / 5 (lower)
+#   Pair 3 rear-right  : idx 6 (upper) / 7 (lower)
+#
+# propellerN_origin : [x, y, z]   hub position in body frame [m]
+# propellerN_axis   : [ax,ay,az]  rotation axis in body frame
+#                                 (unit vector — auto-normalized)
+#
+# Quick axis recipes:
+#   Flat horizontal          : [0, 0, 1]
+#   θ° tilt toward +x (pitch): [sin θ, 0, cos θ]
+#   θ° tilt toward +y (roll) : [0, sin θ, cos θ]
+#   θ° tilt outward along arm direction (x_arm, y_arm):
+#                              normalize([x_arm·sinθ, y_arm·sinθ,
+#                                         √(x_arm²+y_arm²)·cosθ])
+#
+# Example: 8° outward cant for front-right arm (x=+1, y=-1):
+#   sin 8° ≈ 0.1392, cos 8° ≈ 0.9903
+#   axis = [+0.0985, -0.0985, 0.9903]
+# ============================================================
+
+# --- Mesh paths ---
+fuselage_model_path:       "package://crane_aero_sim/meshes/CraneAero/body.stl"
+propeller_cw_model_path:   "package://crane_aero_sim/meshes/CraneAero/propeller_cw.stl"
+propeller_ccw_model_path:  "package://crane_aero_sim/meshes/CraneAero/propeller_ccw.stl"
+
+fuselage_roll: 0.0  # degrees, applied to entire model (incl. propellers)
+fuselage_pitch: 0.0
+fuselage_yaw:   90.0
+
+# --- Frames ---
+OriginFrame:  "world"
+VehicleFrame: "base_link"
+useFPV:       true
+
+# --- Visual scale ---
+scale_x: 0.001
+scale_y: 0.001
+scale_z: 0.001
+
+# --- Animation ---
+Rate:             30.0     # Hz — publish rate
+rpm_to_rad_scale: 0.01     # display ω = rpm * this
+max_display_rate: 100.0    # rad/s cap
+min_spin_rate:    2.0      # rad/s floor when RPM > 0
+
+# ---- Pair 0 — front-right (+x, -y) ----
+propeller0_origin: [-1.3635215, -1.032238, +0.4547586]
+propeller0_axis:   [0.0, 0.0, 1.0]
+propeller1_origin: [-1.3980247, -1.0408407, +0.0563723]
+propeller1_axis:   [0.0, 0.0, 1.0]
+
+# ---- Pair 1 — rear-left (-x, +y) ----
+propeller2_origin: [+1.3635215, +1.032238, +0.4547586]
+propeller2_axis:   [0.0, 0.0, 1.0]
+propeller3_origin: [+1.3980243, +1.0408406, +0.0563722]
+propeller3_axis:   [0.0, 0.0, 1.0]
+
+# ---- Pair 2 — front-left (+x, +y) ----
+propeller4_origin: [+1.363546, -1.032451, +0.4547608]
+propeller4_axis:   [0.0, 0.0, 1.0]
+propeller5_origin: [+1.3980233, -1.0408355, +0.0563721]
+propeller5_axis:   [0.0, 0.0, 1.0]
+
+# ---- Pair 3 — rear-right (-x, -y) ----
+propeller6_origin: [-1.3980242, 1.0408405, +0.4547586]
+propeller6_axis:   [0.0, 0.0, 1.0]
+propeller7_origin: [-1.3980242, 1.0408405, +0.0563722]
+propeller7_axis:   [0.0, 0.0, 1.0]

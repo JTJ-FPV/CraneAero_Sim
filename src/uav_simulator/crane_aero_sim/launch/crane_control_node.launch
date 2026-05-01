@@ -1,0 +1,42 @@
+<launch>
+
+    <arg name="init_x" value="0.0"/>
+    <arg name="init_y" value="0.0"/>
+    <arg name="init_z" value="1.0"/> 
+
+    <arg name="map_name" value="$(find map_generator)/resource/small_forest01cutoff.pcd"/>
+    <arg name="downsample_resolution" value="0.1"/>
+
+    <arg name="use_uav_extra_model" value = "1"/>
+
+   <node pkg="map_generator" name="map_pub" type="map_pub" output="screen"
+         args="$(arg map_name)">
+        <param name="add_boundary" value="0"/>
+        <param name="is_bridge" value="0"/>
+        <param name="downsample_res" value="0.1"/>         
+        <param name="map_offset_x" value="0.0"/>   
+        <param name="map_offset_y" value="0.0"/>   
+        <param name="map_offset_z" value="0.0"/>   
+   </node>
+
+    <node pkg="crane_aero_sim" name="coaxial_dynamics_1" type="crane_control_node" output="screen">
+        <remap from="~odom" to="/coaxial_1/simulator/odom"/>
+        <remap from="~cmd_rpm" to="/coaxial_1/cmd_rpm"/>
+        <param name="mass"   value="460 "/>
+        <param name="simulation_rate"   value="500"/>
+        <param name="coaxial_name"   value="coaxial_x8_1"/>
+        <param name="init_state_x"   value="$(arg init_x)"/>
+        <param name="init_state_y"   value="$(arg init_y)"/>
+        <param name="init_state_z"   value="$(arg init_z)"/>
+    </node>
+
+    <node pkg="crane_aero_sim" name="visualizer_node" type="visualizer_node" output="screen">
+        <remap from="~odom" to="/coaxial_1/simulator/odom"/>
+        <remap from="~cmd_rpm" to="/coaxial_1/cmd_rpm"/>
+        <rosparam file="$(find crane_aero_sim)/config/visualizer_config.yaml" command="load" />
+    </node>
+
+   <node name="rvizvisualisation" pkg="rviz" type="rviz" output="screen"
+   args="-d $(find test_interface)/config/traj.rviz" />
+
+</launch>

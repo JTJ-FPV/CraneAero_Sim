@@ -1,0 +1,238 @@
+Coaxial Propeller CFD Test Cases
+
+Purpose:
+Record upper/lower propeller thrust and torque, then calculate total thrust and total torque of one coaxial propeller pair.
+
+Required outputs:
+T_u: upper propeller thrust
+T_l: lower propeller thrust
+Q_u: upper propeller torque
+Q_l: lower propeller torque
+T_total = T_u + T_l
+Q_total = Q_u + Q_l
+
+Case, Upper_RPM, Lower_RPM, T_u, T_l, Q_u, Q_l, T_total, Q_total
+1, -900,  900,  , , , , ,
+
+                              lower-lift            81.105949 [N]
+                            lower-torque           -10.733984 [N m]
+                              total-lift            206.23853 [N]
+                            total-torque            1.6241847 [N m]
+                              upper-lift            125.13258 [N]
+                            upper-torque            12.358169 [N m]
+
+2, -1200, 1200, , , , , ,
+
+                              lower-lift            145.21488 [N]
+                            lower-torque           -19.197406 [N m]
+                              total-lift            369.48488 [N]
+                            total-torque            2.9322684 [N m]
+                              upper-lift               224.27 [N]
+                            upper-torque            22.129674 [N m]
+
+3, -1500, 1500, , , , , ,
+
+                              lower-lift            229.27421 [N]
+                            lower-torque           -30.330198 [N m]
+                              total-lift            582.71436 [N]
+                            total-torque            4.5915645 [N m]
+                              upper-lift            353.44015 [N]
+                            upper-torque            34.921762 [N m]
+
+4, -1800, 1800, , , , , ,
+
+                              lower-lift            331.95983 [N]
+                            lower-torque           -44.049811 [N m]
+                              total-lift            845.48866 [N]
+                            total-torque            6.8774154 [N m]
+                              upper-lift            513.52883 [N]
+                            upper-torque            50.927226 [N m]
+
+5, -2000, 2000, , , , , ,
+
+                              lower-lift            413.04025 [N]
+                            lower-torque           -54.918733 [N m]
+                              total-lift            1050.9726 [N]
+                            total-torque            8.5094328 [N m]
+                              upper-lift            637.93236 [N]
+                            upper-torque            63.428166 [N m]
+
+6, -2245, 2245, , , , , ,
+
+                              lower-lift            522.47591 [N]
+                            lower-torque           -69.918253 [N m]
+                              total-lift            1333.5574 [N]
+                            total-torque            11.144584 [N m]
+                              upper-lift            811.08145 [N]
+                            upper-torque            81.062837 [N m]
+
+7,  -1250, 1150, , , , , ,
+
+                              lower-lift            117.03764 [N]
+                            lower-torque           -16.818912 [N m]
+                              total-lift            364.97592 [N]
+                            total-torque            7.3475182 [N m]
+                              upper-lift            247.93829 [N]
+                            upper-torque             24.16643 [N m]
+
+8,  -1150, 1250, , , , , ,
+
+                              lower-lift            175.75377 [N]
+                            lower-torque            -21.73309 [N m]
+                              total-lift            378.31475 [N]
+                            total-torque            -1.527252 [N m]
+                              upper-lift            202.56097 [N]
+                            upper-torque            20.205838 [N m]
+
+9,  -1300, 1100, , , , , ,
+
+                              lower-lift            90.084665 [N]
+                            lower-torque           -14.532271 [N m]
+                              total-lift            363.60064 [N]
+                            total-torque            11.772227 [N m]
+                              upper-lift            273.51597 [N]
+                            upper-torque            26.304498 [N m]
+
+10, -1100, 1300, , , , , ,
+
+                              lower-lift            208.30399 [N]
+                            lower-torque           -24.376236 [N m]
+                              total-lift            390.99528 [N]
+                            total-torque           -5.9763659 [N m]
+                              upper-lift             182.6913 [N]
+                            upper-torque             18.39987 [N m]
+
+11, -1900, 1700, , , , , ,
+
+                              lower-lift            246.16539 [N]
+                            lower-torque           -36.837591 [N m]
+                              total-lift            833.61766 [N]
+                            total-torque            20.514075 [N m]
+                              upper-lift            587.45227 [N]
+                            upper-torque            57.351666 [N m]
+
+12, -1700, 1900, , , , , ,
+
+                              lower-lift            426.43875 [N]
+                            lower-torque           -51.947832 [N m]
+                              total-lift            874.03961 [N]
+                            total-torque           -6.9758052 [N m]
+                              upper-lift            447.60085 [N]
+                            upper-torque            44.972027 [N m]
+
+13, -2000, 1600, , , , , ,
+
+                              lower-lift            163.66941 [N]
+                            lower-torque           -29.671059 [N m]
+                              total-lift            833.39759 [N]
+                            total-torque            34.575813 [N m]
+                              upper-lift            669.72819 [N]
+                            upper-torque            64.246872 [N m]
+
+14, -1600, 2000, , , , , ,
+
+                              lower-lift            529.02082 [N]
+                            lower-torque           -60.326811 [N m]
+                              total-lift            917.98961 [N]
+                            total-torque           -20.809351 [N m]
+                              upper-lift             388.9688 [N]
+                            upper-torque             39.51746 [N m]
+
+15, -2245, 2045, , , , , ,
+
+                              lower-lift             370.3842 [N]
+                            lower-torque           -54.591714 [N m]
+                              total-lift            1197.7303 [N]
+                            total-torque             26.93042 [N m]
+                              upper-lift            827.34612 [N]
+                            upper-torque            81.522135 [N m]
+
+16, -2045, 2245, , , , , ,
+
+                              lower-lift            590.35162 [N]
+                            lower-torque           -73.231263 [N m]
+                              total-lift            1246.8437 [N]
+                            total-torque           -7.0552301 [N m]
+                              upper-lift            656.49208 [N]
+                            upper-torque            66.176033 [N m]
+
+17, -1100, 1100
+
+                              lower-lift            121.69969 [N]
+                            lower-torque           -16.089813 [N m]
+                              total-lift            309.62666 [N]
+                            total-torque            2.4535291 [N m]
+                              upper-lift            187.92697 [N]
+                            upper-torque            18.543342 [N m]
+
+18, -1300, 1300
+
+                              lower-lift            171.22562 [N]
+                            lower-torque           -22.640595 [N m]
+                              total-lift            435.22961 [N]
+                            total-torque            3.4133697 [N m]
+                              upper-lift            264.00399 [N]
+                            upper-torque            26.053965 [N m]
+
+19, -1600, 1600
+
+                              lower-lift            260.90584 [N]
+                            lower-torque           -34.549132 [N m]
+                              total-lift            664.21206 [N]
+                            total-torque            5.3497721 [N m]
+                              upper-lift            403.30622 [N]
+                            upper-torque            39.898904 [N m]
+
+20, -1700, 1700
+
+                              lower-lift            296.05797 [N]
+                            lower-torque           -39.218293 [N m]
+                              total-lift            752.62528 [N]
+                            total-torque            5.9832646 [N m]
+                              upper-lift            456.56731 [N]
+                            upper-torque            45.201558 [N m]
+
+21, -1900, 1900
+
+                              lower-lift              370.878 [N]
+                            lower-torque           -49.277867 [N m]
+                              total-lift            944.85962 [N]
+                            total-torque            7.7215857 [N m]
+                              upper-lift            573.98162 [N]
+                            upper-torque            56.999453 [N m]
+
+22, -2045, 2045
+
+                              lower-lift            432.40896 [N]
+                            lower-torque           -57.537616 [N m]
+                              total-lift            1100.4469 [N]
+                            total-torque            8.9353564 [N m]
+                              upper-lift            668.03798 [N]
+                            upper-torque            66.472972 [N m]
+
+23, -2145, 2145
+
+                              lower-lift            475.81338 [N]
+                            lower-torque           -63.501394 [N m]
+                              total-lift            1213.5596 [N]
+                            total-torque            10.064565 [N m]
+                              upper-lift            737.74625 [N]
+                            upper-torque            73.565959 [N m]
+
+24, -2145, 2245
+
+                              lower-lift            557.62432 [N]
+                            lower-torque           -71.659254 [N m]
+                              total-lift            1288.4542 [N]
+                            total-torque             1.675256 [N m]
+                              upper-lift            730.82991 [N]
+                            upper-torque             73.33451 [N m]
+
+25, -2245, 2145
+
+                              lower-lift            443.31901 [N]
+                            lower-torque            -61.93439 [N m]
+                              total-lift            1262.2415 [N]
+                            total-torque            19.345523 [N m]
+                              upper-lift            818.92248 [N]
+                            upper-torque            81.279914 [N m]
