@@ -584,14 +584,14 @@
 // ============================================================
 namespace coaxial_data {
 
-static constexpr int    N_PTS   = 41;
+static constexpr int    N_PTS   = 42;
 // static constexpr int    N_PTS   = 28;
 // static constexpr int    N_PTS   = 26;
 static constexpr double RPM_MIN = 0.0;
 static constexpr double RPM_MAX = 2245.0;
 
 // {RPM_u, RPM_l, T_u, T_l, Q_u, Q_l}
-static constexpr double DATA[41][6] = {
+static constexpr double DATA[42][6] = {
     // { RPM_u, RPM_l, T_u, T_l, Q_u, Q_l }
     {       900,       900,   125.132580,    81.105949,    12.358169,   -10.733984 }, // case 1, Ttot=206.239, Qtot=1.624
     {      1200,      1200,   224.270000,   145.214880,    22.129674,   -19.197406 }, // case 2, Ttot=369.485, Qtot=2.932
