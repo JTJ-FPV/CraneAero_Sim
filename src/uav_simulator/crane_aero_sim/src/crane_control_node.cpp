@@ -49,9 +49,10 @@ static const int MODE_TOGGLE_BUTTON = 8;        // 第 8 号按钮（从 0 开�
 
 ControlMode current_control_mode = RC_CONTROL;
 bool        snap_setpoint_to_current = false;   // 进入 CMD_WAITING 时锁定到当前位姿
+bool        enable_rc = true;                    // 是否接收遥控器(/joy)信号，由 launch 参数 enable_rc 控制
 
 ros::Publisher control_RPM_pub, odom_pub, imu_pub;
-
+ros::Publisher pos_error, vel_error;
 Eigen::Vector3d pos_des, vel_des, acc_des;
 geometry_msgs::PoseStamped pose_cmd;
 double yaw_des = 0.0;
@@ -102,6 +103,11 @@ void planning_cmd_callback(const quadrotor_msgs::PositionCommand::ConstPtr& cmd)
 
 void joyCallback(const sensor_msgs::Joy::ConstPtr& msg)
 {
+    // ---- 0. 遥控器开关关闭时，直接忽略所有 /joy 信号 ----
+    if (!enable_rc) {
+        return;
+    }
+
     // ---- 1. 摇杆轴 ----
     if (msg->axes.size() > 4) {
         rc_input.pitch_stick    =  msg->axes[4];   // 右摇杆 上下 → pitch
@@ -183,14 +189,29 @@ int main(int argc, char **argv)
     nh.param("init_state_z", init_z, 1.0);
     nh.param("simulation_rate", simulation_rate, 200.0);
     nh.param("coaxial_name", quad_name, std::string("coaxial_1"));
+    nh.param("enable_rc", enable_rc, true);   // 遥控器总开关，launch 中可配置
 
     odom_pub        = nh.advertise<nav_msgs::Odometry>("odom", 100);
     imu_pub         = nh.advertise<sensor_msgs::Imu>("imu", 10);
     control_RPM_pub = nh.advertise<std_msgs::Float32MultiArray>("cmd_rpm", 100);
-    
+    pos_error       = nh.advertise<geometry_msgs::Point>("position_error", 100);
+    vel_error       = nh.advertise<geometry_msgs::Point>("velocity_error", 100);
+
     ros::Subscriber cmd_sub          = nh.subscribe("cmd_pose",     100, &cmd_callback,          ros::TransportHints().tcpNoDelay());
     ros::Subscriber planning_cmd_sub = nh.subscribe("planning_cmd", 100, &planning_cmd_callback, ros::TransportHints().tcpNoDelay());
-    ros::Subscriber joy_sub          = nh.subscribe("/joy",         10,  &joyCallback,           ros::TransportHints().tcpNoDelay());
+
+    // 仅在遥控器开关打开时订阅 /joy；关闭时不订阅，并直接进入等待指令状态
+    ros::Subscriber joy_sub;
+    if (enable_rc) {
+        joy_sub = nh.subscribe("/joy", 10, &joyCallback, ros::TransportHints().tcpNoDelay());
+        ROS_INFO("[RC] enable_rc = true  : 接收遥控器(/joy)信号，启动于 RC_CONTROL");
+    } else {
+        // 遥控器关闭：不订阅 /joy，启动即进入 CMD_WAITING，锁定当前位姿等待首条指令
+        current_control_mode     = CMD_WAITING;
+        snap_setpoint_to_current = true;
+        rc_input.active          = false;
+        ROS_WARN("[RC] enable_rc = false : 不接收遥控器信号，启动于 CMD_WAITING (等待 cmd_pose / planning_cmd)");
+    }
 
     pos_des = Eigen::Vector3d(init_x, init_y, init_z);
     vel_des = Eigen::Vector3d::Zero();
@@ -343,7 +364,7 @@ int main(int argc, char **argv)
                 ctrl.updateFromRC(rc_input);
                 break;
         }
-
+        
         auto wrench = ctrl.run();
 
         auto rpm8 = alloc.allocate(wrench.thrust_body_z, wrench.torque_body);
@@ -423,6 +444,22 @@ int main(int argc, char **argv)
         imu_msg.linear_acceleration.y = acc_imu(1);
         imu_msg.linear_acceleration.z = acc_imu(2);
         imu_pub.publish(imu_msg);
+
+
+        {
+            geometry_msgs::Point pos_error_tmp;
+            pos_error_tmp.x =  pos_des.x() - odom.pose.pose.position.x;
+            pos_error_tmp.y =  pos_des.y() - odom.pose.pose.position.y; 
+            pos_error_tmp.z =  pos_des.z() - odom.pose.pose.position.z;
+            pos_error.publish(pos_error_tmp);
+
+            geometry_msgs::Point vel_error_tmp;
+            vel_error_tmp.x =  vel_des.x() - odom.twist.twist.linear.x;
+            vel_error_tmp.y =  vel_des.y() - odom.twist.twist.linear.y;
+            vel_error_tmp.z =  vel_des.z() - odom.twist.twist.linear.z;
+            vel_error.publish(vel_error_tmp);
+        }
+
 
         rate.sleep();
     }

@@ -36,6 +36,7 @@
             <param name="init_state_x"   value="$(arg init_x)"/>
             <param name="init_state_y"   value="$(arg init_y)"/>
             <param name="init_state_z"   value="$(arg init_z)"/>
+            <param name="enable_rc"      value="false"/>   <!-- 遥控器总开关：true=接收 /joy；false=忽略遥控器，启动即等待指令 -->
       </node>
 
       <node pkg="crane_aero_sim" name="visualizer_node" type="visualizer_node" output="screen">
