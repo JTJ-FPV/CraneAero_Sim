@@ -1,0 +1,86 @@
+<launch>
+    <arg name="init_x" value="0.0"/>
+    <arg name="init_y" value="0.0"/>
+    <arg name="init_z" value="1.0"/>
+    <arg name="map_name" value="$(find map_generator)/resource/small_forest01cutoff.pcd"/>
+    <arg name="downsample_resolution" value="0.1"/>
+    <arg name="use_uav_extra_model" value="1"/>
+
+    <!-- ============ RViz ============ -->
+    <arg name="enable_rviz" default="true"/>
+    <arg name="rviz_config" default="$(find crane_aero_sim)/rviz/traj.rviz"/>
+
+    <!-- ============ Wind args (明显变向配置) ============ -->
+    <arg name="wind_enable"         default="true"/>
+    <arg name="wind_mean_x"         default="10.0"/>   <!-- 主导方向 [m/s] -->
+    <arg name="wind_mean_y"         default="0.0"/>
+    <arg name="wind_mean_z"         default="0.0"/>
+    <arg name="wind_turb_sigma_xy"  default="4.0"/>    <!-- 强湍流：方向 ±25° 来回飘 -->
+    <arg name="wind_turb_sigma_z"   default="1.5"/>
+    <arg name="wind_turb_tau"       default="1.0"/>    <!-- 慢摆，看得清方向变化 -->
+    <arg name="wind_gust_enable"    default="true"/>
+    <arg name="wind_gust_amp_mean"  default="5.0"/>    <!-- 阵风幅值 [m/s] -->
+    <arg name="wind_gust_amp_sigma" default="2.0"/>
+    <arg name="wind_gust_duration"  default="2.0"/>    <!-- 阵风持续 [s] -->
+    <arg name="wind_gust_rate"      default="0.15"/>   <!-- ~每 7 秒一次随机方向阵风 -->
+    <arg name="wind_seed"           default="42"/>
+
+    <node pkg="map_generator" name="map_pub" type="map_pub" output="screen"
+          args="$(arg map_name)">
+        <param name="add_boundary"   value="0"/>
+        <param name="is_bridge"      value="0"/>
+        <param name="downsample_res" value="0.1"/>
+        <param name="map_offset_x"   value="0.0"/>
+        <param name="map_offset_y"   value="0.0"/>
+        <param name="map_offset_z"   value="0.0"/>
+    </node>
+
+    <node pkg="crane_aero_sim" name="coaxial_dynamics_1" type="crane_control_wind_node" output="screen">
+        <remap from="~odom"             to="/coaxial_1/simulator/odom"/>
+        <remap from="~cmd_rpm"          to="/coaxial_1/cmd_rpm"/>
+        <remap from="~wind"             to="/coaxial_1/wind"/>
+        <remap from="~wind_gust_active" to="/coaxial_1/wind_gust_active"/>
+
+        <param name="mass"            value="400"/>
+        <param name="simulation_rate" value="500"/>
+        <param name="coaxial_name"    value="coaxial_x8_1"/>
+        <param name="init_state_x"    value="$(arg init_x)"/>
+        <param name="init_state_y"    value="$(arg init_y)"/>
+        <param name="init_state_z"    value="$(arg init_z)"/>
+
+        <param name="wind/enable"         value="$(arg wind_enable)"/>
+        <param name="wind/mean_x"         value="$(arg wind_mean_x)"/>
+        <param name="wind/mean_y"         value="$(arg wind_mean_y)"/>
+        <param name="wind/mean_z"         value="$(arg wind_mean_z)"/>
+        <param name="wind/turb_sigma_xy"  value="$(arg wind_turb_sigma_xy)"/>
+        <param name="wind/turb_sigma_z"   value="$(arg wind_turb_sigma_z)"/>
+        <param name="wind/turb_tau"       value="$(arg wind_turb_tau)"/>
+        <param name="wind/gust_enable"    value="$(arg wind_gust_enable)"/>
+        <param name="wind/gust_amp_mean"  value="$(arg wind_gust_amp_mean)"/>
+        <param name="wind/gust_amp_sigma" value="$(arg wind_gust_amp_sigma)"/>
+        <param name="wind/gust_duration"  value="$(arg wind_gust_duration)"/>
+        <param name="wind/gust_rate"      value="$(arg wind_gust_rate)"/>
+        <param name="wind/seed"           value="$(arg wind_seed)"/>
+    </node>
+
+    <node pkg="crane_aero_sim" name="visualizer_node" type="visualizer_node" output="screen">
+        <remap from="~odom"             to="/coaxial_1/simulator/odom"/>
+        <remap from="~cmd_rpm"          to="/coaxial_1/cmd_rpm"/>
+        <remap from="~wind"             to="/coaxial_1/wind"/>
+        <remap from="~wind_gust_active" to="/coaxial_1/wind_gust_active"/>
+
+        <rosparam file="$(find crane_aero_sim)/config/visualizer_config.yaml" command="load"/>
+
+        <param name="wind_enable_vis"       value="true"/>
+        <param name="wind_arrow_offset_z"   value="1.5"/>
+        <param name="wind_arrow_scale"      value="0.20"/>   <!-- 风速大，箭头缩短一点 -->
+        <param name="wind_arrow_min_len"    value="0.3"/>
+        <param name="wind_color_max"        value="20.0"/>   <!-- 红色阈值上调，匹配大风 -->
+        <param name="wind_particles_enable" value="true"/>
+        <param name="wind_particles_n"      value="300"/>    <!-- 多一点粒子，方向变化更直观 -->
+        <param name="wind_particles_box"    value="10.0"/>
+        <param name="wind_particles_size"   value="0.06"/>
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crane_aero_sim)/config/ego_lidar_fpv.rviz" required="true" />
+</launch>

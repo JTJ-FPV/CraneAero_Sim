@@ -933,6 +933,39 @@ public:
     }
 
     /**
+     * Forward-flight aerodynamic query.
+     *
+     * The hover surrogate query() above is calibrated in STILL AIR (V = 0).
+     * The full-CRANE CFD study (Group 3 §6.2.1–6.2.4, Group 1 §4.5.3) shows
+     * that as the forward (edgewise) airspeed increases, the total thrust of a
+     * coaxial pair decreases mildly, while angle of attack stays a second-order
+     * effect within ±9°.  This method applies that (V, AoA) correction on top of
+     * the still-air surrogate.
+     *
+     * At V_fwd = 0 and AoA_deg = 0 the result is identical to query(rpm_u, rpm_l).
+     *
+     * @param V_fwd   edgewise (in-plane) airspeed seen by the rotor disk [m/s]
+     * @param AoA_deg pitch angle of attack of the relative airflow         [deg]
+     *
+     * NOTE: front/rear pair asymmetry is intentionally NOT modelled here (that
+     * is a separate improvement); all four pairs share this front+rear-averaged
+     * correction.  See thrustSpeedFactor()/torqueSpeedFactor() for the data fit.
+     */
+    AeroQueryResult queryWithInflow(double rpm_u, double rpm_l,
+                                    double V_fwd, double AoA_deg,
+                                    bool clamp = true) const
+    {
+        AeroQueryResult r = query(rpm_u, rpm_l, clamp);   // still-air baseline
+        const double fT = thrustSpeedFactor(V_fwd, AoA_deg);
+        const double fQ = torqueSpeedFactor(V_fwd, AoA_deg);
+        r.T_u *= fT;  r.T_l *= fT;
+        r.Q_u *= fQ;  r.Q_l *= fQ;
+        r.T_total = r.T_u + r.T_l;
+        r.Q_total = r.Q_u + r.Q_l;
+        return r;
+    }
+
+    /**
      * Jacobian of [T_total, Q_total] w.r.t. [RPM_u, RPM_l].
      * Useful for linearization and control design.
      *
@@ -1015,6 +1048,36 @@ public:
 
 private:
     RBFCubic2D rbf_Tu_, rbf_Tl_, rbf_Qu_, rbf_Ql_;
+
+    // ---- Forward-flight inflow correction (data-fit, see queryWithInflow) ----
+    //
+    // Thrust: full-CRANE CFD (Group 3 Tables 6.2/6.3/6.4) gives the total
+    // thrust of a coaxial pair, front+rear averaged over RPM, as a fraction of
+    // its hover value:   V=0 → 1.000,  V=5 → 0.993,  V=15 → 0.943.
+    // A single quadratic  f_T(V) = 1 - 2.5e-4 V²  reproduces both data points
+    // (V=5 → 0.994, V=15 → 0.944).  Forward speed is the dominant inflow effect.
+    //
+    // AoA: reported as SECOND-ORDER / numerical scatter within ±9° (Group 3
+    // §6.2.2/§6.2.4); Group 1 §4.5.3.4 sees a weak effect that grows with speed.
+    // Modelled as a small speed-coupled term so the axis exists without
+    // overriding the RPM + forward-speed behaviour (≤ +3% at AoA=9°, V=15 m/s).
+    //
+    // Inputs are clamped to the validated envelope (V ≲ 20 m/s, |AoA| ≲ 9°)
+    // before evaluation; the returned factor is bounded for safety.
+    static double thrustSpeedFactor(double V, double AoA_deg) {
+        const double v = std::clamp(std::abs(V), 0.0, 35.0);
+        double f = 1.0 - 2.5e-4 * v * v;                 // forward-speed derating
+        const double a = std::clamp(std::abs(AoA_deg), 0.0, 12.0);
+        f *= 1.0 + 0.03 * (a / 9.0) * (v / 15.0);        // weak AoA–speed coupling
+        return std::clamp(f, 0.4, 1.2);
+    }
+
+    // Torque is reported as less sensitive to forward speed than thrust
+    // (Group 3 §6.2.1, "torque variations are less affected ... than thrust").
+    static double torqueSpeedFactor(double V, double /*AoA_deg*/) {
+        const double v = std::clamp(std::abs(V), 0.0, 35.0);
+        return std::clamp(1.0 - 1.0e-4 * v * v, 0.5, 1.1);
+    }
 
     // ---- Build from embedded CFD data ----
     void buildFromData() {

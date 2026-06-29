@@ -150,6 +150,7 @@ add_executable(coaxial_dynamic_test src/coaxial_dynamic_test.cpp)
 add_executable(test_allocator_qp src/test_allocator_qp.cpp)
 add_executable(example_closed_loop src/example_closed_loop.cpp)
 add_executable(crane_control_node src/crane_control_node.cpp)
+add_executable(crane_control_wind_node src/crane_control_wind_node.cpp)
 add_executable(crane_control_log_node src/crane_control_log_node.cpp)
 add_executable(visualizer_node src/visualizer_node.cpp)
 add_executable(test_so3_mass_stability src/test_so3_mass_stability.cpp)
@@ -191,6 +192,11 @@ target_link_libraries(example_closed_loop
 )
 
 target_link_libraries(crane_control_node
+  osqp::osqp
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(crane_control_wind_node
   osqp::osqp
   ${catkin_LIBRARIES}
 )
