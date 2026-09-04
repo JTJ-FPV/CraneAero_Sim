@@ -17,8 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf
 )
 
-find_package(osqp REQUIRED)
-
 find_package(Eigen3 REQUIRED)
 # include_directories(${EIGEN3_INCLUDE_DIR})
 add_definitions(${EIGEN_DEFINITIONS})
@@ -182,27 +180,22 @@ target_link_libraries(coaxial_dynamic_test
 )
 
 target_link_libraries(test_allocator_qp
-   osqp::osqp
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(example_closed_loop
-  osqp::osqp
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(crane_control_node
-  osqp::osqp
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(crane_control_wind_node
-  osqp::osqp
   ${catkin_LIBRARIES}
 )
 
 target_link_libraries(crane_control_log_node
-  osqp::osqp
   ${catkin_LIBRARIES}
 )
 
@@ -211,7 +204,6 @@ target_link_libraries(visualizer_node
 )
 
 target_link_libraries(test_so3_mass_stability
-  osqp::osqp
   ${catkin_LIBRARIES}
 )
 

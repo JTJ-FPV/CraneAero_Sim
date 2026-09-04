@@ -12,7 +12,7 @@
 //  Method
 //  ------
 //  For each mass value m_i, build a fresh
-//        dynamics + controller + QP-allocator stack
+//        dynamics + controller + Eigen QP-allocator stack
 //  with mass set to m_i and inertia set to  J(m_i) = m_i · diag(Jx, Jy, Jz),
 //  then run a 25-second closed-loop simulation:
 //
@@ -62,10 +62,9 @@
 //
 //  Build (ROS workspace, alongside the rest of the code base):
 //      g++ -std=c++17 -O2 \
-//          -I${EIGEN_INC} -I${ROS_INC} -I${OSQP_INC} \
+//          -I${EIGEN_INC} -I${ROS_INC} \
 //          test_so3_mass_stability.cpp \
 //          -L${ROS_LIB} -lrosconsole -lroscpp -lrostime \
-//          -L${OSQP_LIB} -losqp \
 //          -o test_so3_mass_stability
 //
 //  Run:

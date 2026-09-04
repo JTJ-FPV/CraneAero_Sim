@@ -2,7 +2,7 @@
 
 A ROS-based **coaxial X8 multirotor simulator** (`crane_aero_sim`) for a heavy-lift crane-class aerial vehicle, integrated with the **EGO-Planner** local planner for autonomous obstacle-avoidance flight in cluttered environments.
 
-This repository extends the original [EGO-Planner](https://github.com/ZJU-FAST-Lab/ego-planner) framework by replacing the lightweight quadrotor model with a high-fidelity coaxial X8 platform whose aerodynamics are driven by **CFD-fitted RBF interpolators** for both the rotor pairs and the fuselage. A cascade SO(3) controller plus an **OSQP-based control allocator** closes the loop and feeds RPM commands to the simulated dynamics, while EGO-Planner provides smooth, ESDF-free local trajectories from a depth camera or dual Livox MID-360 LiDARs.
+This repository extends the original [EGO-Planner](https://github.com/ZJU-FAST-Lab/ego-planner) framework by replacing the lightweight quadrotor model with a high-fidelity coaxial X8 platform whose aerodynamics are driven by **CFD-fitted RBF interpolators** for both the rotor pairs and the fuselage. A cascade SO(3) controller plus an **Eigen-only control allocator** closes the loop and feeds RPM commands to the simulated dynamics, while EGO-Planner provides smooth, ESDF-free local trajectories from a depth camera or dual Livox MID-360 LiDARs.
 
 ---
 
@@ -25,7 +25,7 @@ The system is a complete planning + control + simulation stack:
                                              │ └──────────┬──────────┘ │
                                              │            ▼            │
                                              │ ┌─────────────────────┐ │
-                                             │ │  CoaxialX8AllocQP   │ │  OSQP wrench → RPM
+                                             │ │  CoaxialX8AllocQP   │ │  Eigen QP → RPM
                                              │ │  (CFD-aware)        │ │
                                              │ └──────────┬──────────┘ │
                                              │            ▼            │
@@ -46,7 +46,7 @@ The system is a complete planning + control + simulation stack:
 - **CFD-driven coaxial rotor model** — A `CoaxialRotorModel` fits four 2-D cubic-RBF interpolators (one each for upper/lower thrust and torque) to 41 CFD sample points. Forward query and Jacobian-based inversion `(T_des, Q_des) → (RPM_u, RPM_l)` are both supported.
 - **CFD fuselage aerodynamics** — A `FuselageAeroModel` reproduces the 6-DOF aero wrench on the airframe from `(V, AoA)` using a 25-sample CFD dataset and cubic RBF interpolation.
 - **Geometric SO(3) cascade controller** — Position PD outer loop + SO(3) attitude inner loop (Lee et al. 2010), no Euler-angle singularities, outputs body-frame `(F_z, τ_xyz)` wrench.
-- **OSQP control allocator** — Solves a weighted least-squares QP over `[T_pair_0..3, Q_pair_0..3]` with box constraints from the CFD data hull, then inverts the rotor model per-pair to recover `RPM_u, RPM_l`. Priority weighting `thrust > roll/pitch > yaw` is configurable.
+- **Eigen-only control allocator** — Solves a weighted least-squares QP over `[T_pair_0..3, Q_pair_0..3]` with an in-tree active-set method and box constraints from the CFD data hull, then inverts the rotor model per-pair to recover `RPM_u, RPM_l`. Priority weighting `thrust > roll/pitch > yaw` is configurable; no external optimisation library is required.
 - **X8 layout** — 4 arms × (upper + lower) coaxial pairs, 8 rotors total. Spin convention `{+1,-1, -1,+1, +1,-1, -1,+1}` so each pair can independently produce yaw torque.
 - **Two sensor configurations**:
   - Depth camera (RealSense-style 640×480, 30 Hz) — `local_sensing_node`.
@@ -90,7 +90,7 @@ This repo is meant to be cloned **directly into a catkin workspace's `src/` fold
         │   │   ├── fuselage_aero_model.hpp        # CFD-fit fuselage wrench
         │   │   ├── coaxial_x8_controller.hpp      # Cascade pos + SO(3) attitude
         │   │   ├── coaxial_x8_allocator.hpp       # Closed-form CFD allocator
-        │   │   ├── coaxial_x8_allocator_qp.hpp    # OSQP-based allocator
+        │   │   ├── coaxial_x8_allocator_qp.hpp    # Eigen-only active-set allocator
         │   │   ├── visualizer.hpp                 # RViz MarkerArray renderer
         │   │   └── aerodynamic.hpp / delaunator.hpp
         │   ├── src/
@@ -149,16 +149,9 @@ Tested on **Ubuntu 18.04 / 20.04** with **ROS Melodic / Noetic** (desktop-full).
 ```bash
 # Core ROS bits
 sudo apt-get install libarmadillo-dev libeigen3-dev
-
-# OSQP — required by the QP-based control allocator (latest version from master)
-git clone --recursive https://github.com/osqp/osqp.git
-cd osqp && mkdir build && cd build
-cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . --target install
-sudo ldconfig
 ```
 
-> **OSQP version**: this project tracks the **latest** OSQP release (v1.x master). The QP allocator (`coaxial_x8_allocator_qp.hpp`) uses the current C API (`OSQPSolver`, `osqp_setup`, `osqp_solve`). If you have an older 0.6.x install on your system, please remove or upgrade it first to avoid header / symbol mismatches.
+The control allocator in `coaxial_x8_allocator_qp.hpp` is header-only and depends only on Eigen. Its small active-set solver handles the eight-variable box-constrained QP directly.
 
 LiDAR sensing additionally needs an OpenGL / GPU-capable driver (the `local_sensing_lidar` package uses `opengl_render_node_dual_mid360_gpu`).
 
@@ -302,7 +295,7 @@ Five lightweight test executables live under `crane_aero_sim/src/`:
 | `aerodynamic_test`     | Sanity-check the legacy Delaunay-triangulation aerodynamic interpolator. |
 | `coaxial_model_test`   | Forward-query and Jacobian sweep of the CFD rotor RBF model.             |
 | `coaxial_dynamic_test` | Open-loop step input to `coaxial_x8_dynamics`.                           |
-| `test_allocator_qp`    | OSQP allocator unit test with a battery of wrench requests.              |
+| `test_allocator_qp`    | Eigen active-set allocator test with a battery of wrench requests.       |
 | `example_closed_loop`  | Self-contained closed-loop demo (no ROS required to follow the logic).   |
 | `test_so3_mass_stability` | Stress-test the SO(3) controller across a wide mass range.            |
 
@@ -319,7 +312,6 @@ This project builds on, and gratefully reuses code from, the following open-sour
 - **[Fast-Planner](https://github.com/HKUST-Aerial-Robotics/Fast-Planner)** — Provided the original framework that EGO-Planner extends.
 - **[mockamap](https://github.com/HKUST-Aerial-Robotics/mockamap)** — The Perlin-noise random map generator.
 - **[LBFGS-Lite](https://github.com/ZJU-FAST-Lab/LBFGS-Lite)** — Header-only L-BFGS solver used inside EGO-Planner.
-- **[OSQP](https://osqp.org/)** — The operator-splitting QP solver behind the control allocator.
 - **[delaunator-cpp](https://github.com/abellgithub/delaunator-cpp)** — Bundled in `include/delaunator.hpp` for the legacy aerodynamic interpolator.
 
 Citation for EGO-Planner:

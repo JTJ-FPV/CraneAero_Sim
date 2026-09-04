@@ -8,10 +8,10 @@
  *   4. Conflicting requests — max thrust + max yaw simultaneously
  *
  * Build:
- *   g++ -std=c++17 -O2 -I/usr/include/eigen3 test_allocator_qp.cpp -losqp -o test_qp
+ *   g++ -std=c++17 -O2 -I/usr/include/eigen3 \
+ *       -I../include test_allocator_qp.cpp -o test_qp
  */
 #include <cstdio>
-#include <type_traits>
 #include <Eigen/Dense>
 #include "coaxial_rotor_model.hpp"
 #include "coaxial_x8_allocator_qp.hpp"
@@ -40,10 +40,8 @@ static void printResult(const char* label, double F_des, const Eigen::Vector3d& 
 int main()
 {
 
-    std::cout << "OSQP version = " << osqp_version() << "\n";
-    std::cout << "sizeof(OSQPInt) = " << sizeof(OSQPInt) << "\n";
-    std::cout << "sizeof(Eigen default sparse index) = "
-              << sizeof(Eigen::SparseMatrix<double>::StorageIndex) << "\n";
+    std::cout << "Eigen version = " << EIGEN_WORLD_VERSION << "."
+              << EIGEN_MAJOR_VERSION << "." << EIGEN_MINOR_VERSION << "\n";
 
     CoaxialX8AllocatorQP::Params ap;
     ap.arm_length = 1.65;

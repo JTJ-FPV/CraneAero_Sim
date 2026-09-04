@@ -1,6 +1,6 @@
 #pragma once
 /**
- * coaxial_x8_allocator_qp.hpp  —  X8 control allocator via OSQP
+ * coaxial_x8_allocator_qp.hpp  —  Eigen-only X8 control allocator
  *
  * Design:
  *   Decision variable:  x = [T_pair(0..3);  Q_pair(0..3)]  ∈ R⁸
@@ -25,21 +25,18 @@
  *       Q_pair ∈ [Q_min, Q_max]
  *
  *   Two-stage solve:
- *     (1) OSQP finds feasible (T_pair, Q_pair) respecting box constraints
+ *     (1) A small active-set solver implemented with Eigen finds feasible
+ *         (T_pair, Q_pair) respecting box constraints
  *     (2) For each pair: CoaxialRotorModel::invert(T_pair, Q_pair) → (RPM_u, RPM_l)
  *
  *
  */
 #include <eigen3/Eigen/Dense>
-#include <eigen3/Eigen/Sparse>
-#include <osqp/osqp.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstring>
 #include <iostream>
 #include <vector>
-#include <limits>
 #include "coaxial_rotor_model.hpp"
 
 class CoaxialX8AllocatorQP
@@ -57,9 +54,9 @@ public:
         double w_yaw      = 1.0;
         double w_reg      = 1e-4;   // regularizer on x itself
 
-        // Solver tuning
-        double eps_abs     = 1e-4;
-        double eps_rel     = 1e-4;
+        // Active-set solver tuning (KKT stopping tolerances)
+        double eps_abs     = 1e-8;
+        double eps_rel     = 1e-8;
         int    max_iter    = 200;
         bool   verbose     = false;
     };
@@ -135,9 +132,9 @@ public:
         lb.tail<4>().setConstant(Q_min_);
         ub.tail<4>().setConstant(Q_max_);
 
-        // ------------- Solve via OSQP ----------------------------------
+        // ------------- Solve with the Eigen active-set method ----------
         Eigen::Matrix<double, 8, 1> x_opt;
-        bool qp_ok = solveOSQP(P, q, lb, ub, x_opt, out.qp_iters);
+        bool qp_ok = solveBoundedQP(P, q, lb, ub, x_opt, out.qp_iters);
 
         if (!qp_ok) {
             // ---------- Fallback: unconstrained pseudo-inverse --------
@@ -265,102 +262,187 @@ private:
     //     Q_max_ *= 0.8;
     // }
 
-    bool solveOSQP(const Eigen::Matrix<double, 8, 8>& P_dense,
-                const Eigen::Matrix<double, 8, 1>& q_vec,
-                const Eigen::Matrix<double, 8, 1>& lb,
-                const Eigen::Matrix<double, 8, 1>& ub,
-                Eigen::Matrix<double, 8, 1>& x_out,
-                int& n_iters) const
+    /**
+     * Solve the strictly convex box-constrained QP
+     *
+     *     min 0.5 x' P x + q' x,   lb <= x <= ub
+     *
+     * with a primal active-set method.  The problem has only eight variables,
+     * so rebuilding and factorising the free-variable Hessian is inexpensive
+     * and avoids any external optimisation dependency.  At convergence the
+     * free-variable gradient is zero and the active-bound multipliers satisfy
+     * the KKT sign conditions.
+     */
+    bool solveBoundedQP(const Eigen::Matrix<double, 8, 8>& P_dense,
+                        const Eigen::Matrix<double, 8, 1>& q_vec,
+                        const Eigen::Matrix<double, 8, 1>& lb,
+                        const Eigen::Matrix<double, 8, 1>& ub,
+                        Eigen::Matrix<double, 8, 1>& x_out,
+                        int& n_iters) const
     {
-        using SpMat   = Eigen::SparseMatrix<OSQPFloat, Eigen::ColMajor, OSQPInt>;
-        using Triplet = Eigen::Triplet<OSQPFloat, OSQPInt>;
+        using Mat8 = Eigen::Matrix<double, N_VARS, N_VARS>;
+        using Vec8 = Eigen::Matrix<double, N_VARS, 1>;
+
+        enum BoundState : int { LOWER = -1, FREE = 0, UPPER = 1 };
 
         n_iters = 0;
         x_out.setZero();
 
-        // ---------- Build P (upper triangular only) ----------
-        SpMat P(8, 8);
-        std::vector<Triplet> P_trips;
-        P_trips.reserve(36);
-
-        for (OSQPInt j = 0; j < 8; ++j) {
-            for (OSQPInt i = 0; i <= j; ++i) {
-                const double v = P_dense(i, j);
-                if (std::abs(v) > 1e-14) {
-                    P_trips.emplace_back(i, j, static_cast<OSQPFloat>(v));
-                }
+        if (!P_dense.allFinite() || !q_vec.allFinite() ||
+            !lb.allFinite() || !ub.allFinite()) {
+            return false;
+        }
+        for (int i = 0; i < N_VARS; ++i) {
+            if (lb(i) > ub(i)) {
+                return false;
             }
         }
 
-        P.setFromTriplets(P_trips.begin(), P_trips.end());
-        P.makeCompressed();
-
-        // ---------- Wrap P into OSQP CSC ----------
-        OSQPCscMatrix P_csc{};
-        OSQPCscMatrix_set_data(&P_csc,
-                            8, 8,
-                            static_cast<OSQPInt>(P.nonZeros()),
-                            P.valuePtr(),
-                            P.innerIndexPtr(),
-                            P.outerIndexPtr());
-
-        // ---------- A = I ----------
-        OSQPCscMatrix* A_csc = OSQPCscMatrix_identity(8);
-        if (!A_csc) return false;
-
-        // ---------- q / l / u ----------
-        std::array<OSQPFloat, 8> q_buf{}, l_buf{}, u_buf{};
-        for (int i = 0; i < 8; ++i) {
-            q_buf[i] = static_cast<OSQPFloat>(q_vec(i));
-            l_buf[i] = static_cast<OSQPFloat>(lb(i));
-            u_buf[i] = static_cast<OSQPFloat>(ub(i));
-        }
-
-        // ---------- settings ----------
-        OSQPSettings* settings = OSQPSettings_new();
-        if (!settings) {
-            OSQPCscMatrix_free(A_csc);
+        // Protect against insignificant asymmetry introduced by round-off.
+        const Mat8 P = 0.5 * (P_dense + P_dense.transpose());
+        Eigen::LDLT<Mat8> full_ldlt(P);
+        if (full_ldlt.info() != Eigen::Success || !full_ldlt.isPositive()) {
             return false;
         }
 
-        osqp_set_default_settings(settings);
-        settings->verbose   = p_.verbose ? 1 : 0;
-        settings->eps_abs   = static_cast<OSQPFloat>(p_.eps_abs);
-        settings->eps_rel   = static_cast<OSQPFloat>(p_.eps_rel);
-        settings->max_iter  = static_cast<OSQPInt>(p_.max_iter);
-        settings->polishing = 0;    // disable polishing for deterministic solve time (no extra factorization)
+        Vec8 x = full_ldlt.solve(-q_vec);
+        if (full_ldlt.info() != Eigen::Success || !x.allFinite()) {
+            return false;
+        }
 
-        // ---------- setup + solve ----------
-        OSQPSolver* solver = nullptr;
-        OSQPInt ret = osqp_setup(&solver,
-                                &P_csc, q_buf.data(),
-                                A_csc, l_buf.data(), u_buf.data(),
-                                8, 8, settings);
-
-        bool success = false;
-
-        if (ret == 0 && solver) {
-            ret = osqp_solve(solver);
-
-            if (ret == 0 &&
-                solver->info &&
-                (solver->info->status_val == OSQP_SOLVED ||
-                solver->info->status_val == OSQP_SOLVED_INACCURATE) &&
-                solver->solution && solver->solution->x)
-            {
-                for (int i = 0; i < 8; ++i)
-                    x_out(i) = static_cast<double>(solver->solution->x[i]);
-
-                n_iters = static_cast<int>(solver->info->iter);
-                success = true;
+        std::array<int, N_VARS> state{};
+        state.fill(FREE);
+        for (int i = 0; i < N_VARS; ++i) {
+            if (x(i) <= lb(i)) {
+                x(i) = lb(i);
+                state[i] = LOWER;
+            } else if (x(i) >= ub(i)) {
+                x(i) = ub(i);
+                state[i] = UPPER;
             }
         }
 
-        if (solver)   osqp_cleanup(solver);
-        if (settings) OSQPSettings_free(settings);
-        if (A_csc)    OSQPCscMatrix_free(A_csc);
+        const double bound_scale = std::max(
+            1.0, std::max(lb.cwiseAbs().maxCoeff(), ub.cwiseAbs().maxCoeff()));
+        const double primal_tol = std::max(1e-12, p_.eps_abs + p_.eps_rel * bound_scale);
+        const int max_iterations = std::max(1, p_.max_iter);
 
-        return success;
+        for (int iter = 0; iter < max_iterations; ++iter) {
+            n_iters = iter + 1;
+
+            std::vector<int> free_indices;
+            free_indices.reserve(N_VARS);
+            for (int i = 0; i < N_VARS; ++i) {
+                if (state[i] == FREE) free_indices.push_back(i);
+                else if (state[i] == LOWER) x(i) = lb(i);
+                else x(i) = ub(i);
+            }
+
+            // Minimise over the current free-variable subspace.
+            Vec8 candidate = x;
+            const int n_free = static_cast<int>(free_indices.size());
+            if (n_free > 0) {
+                Eigen::MatrixXd P_ff(n_free, n_free);
+                Eigen::VectorXd rhs(n_free);
+                for (int r = 0; r < n_free; ++r) {
+                    const int i = free_indices[r];
+                    rhs(r) = -q_vec(i);
+                    for (int j = 0; j < N_VARS; ++j) {
+                        if (state[j] != FREE) rhs(r) -= P(i, j) * x(j);
+                    }
+                    for (int c = 0; c < n_free; ++c) {
+                        P_ff(r, c) = P(i, free_indices[c]);
+                    }
+                }
+
+                Eigen::LDLT<Eigen::MatrixXd> free_ldlt(P_ff);
+                if (free_ldlt.info() != Eigen::Success || !free_ldlt.isPositive()) {
+                    return false;
+                }
+                const Eigen::VectorXd free_solution = free_ldlt.solve(rhs);
+                if (free_ldlt.info() != Eigen::Success || !free_solution.allFinite()) {
+                    return false;
+                }
+                for (int r = 0; r < n_free; ++r) {
+                    candidate(free_indices[r]) = free_solution(r);
+                }
+            }
+
+            // Stay feasible while moving to the subspace minimiser.  If a
+            // bound is encountered, add it to the active set and resolve.
+            const Vec8 direction = candidate - x;
+            double alpha = 1.0;
+            int hit_index = -1;
+            int hit_state = FREE;
+            for (const int i : free_indices) {
+                if (candidate(i) < lb(i) - primal_tol && direction(i) < 0.0) {
+                    const double a = (lb(i) - x(i)) / direction(i);
+                    if (a < alpha) {
+                        alpha = std::max(0.0, a);
+                        hit_index = i;
+                        hit_state = LOWER;
+                    }
+                } else if (candidate(i) > ub(i) + primal_tol && direction(i) > 0.0) {
+                    const double a = (ub(i) - x(i)) / direction(i);
+                    if (a < alpha) {
+                        alpha = std::max(0.0, a);
+                        hit_index = i;
+                        hit_state = UPPER;
+                    }
+                }
+            }
+
+            x += std::clamp(alpha, 0.0, 1.0) * direction;
+            if (hit_index >= 0) {
+                x(hit_index) = (hit_state == LOWER) ? lb(hit_index) : ub(hit_index);
+                state[hit_index] = hit_state;
+                continue;
+            }
+
+            // Snap tiny numerical bound violations before checking KKT.
+            for (const int i : free_indices) {
+                if (x(i) < lb(i)) {
+                    x(i) = lb(i);
+                    state[i] = LOWER;
+                } else if (x(i) > ub(i)) {
+                    x(i) = ub(i);
+                    state[i] = UPPER;
+                }
+            }
+
+            const Vec8 gradient = P * x + q_vec;
+            const double dual_scale = std::max(
+                1.0, std::max(q_vec.cwiseAbs().maxCoeff(), (P * x).cwiseAbs().maxCoeff()));
+            const double dual_tol = std::max(1e-12, p_.eps_abs + p_.eps_rel * dual_scale);
+
+            // At a lower bound grad >= 0; at an upper bound grad <= 0.
+            // Release the most strongly violating active variable.
+            int release_index = -1;
+            double worst_violation = dual_tol;
+            for (int i = 0; i < N_VARS; ++i) {
+                double violation = 0.0;
+                if (state[i] == LOWER) violation = -gradient(i);
+                else if (state[i] == UPPER) violation = gradient(i);
+
+                if (violation > worst_violation) {
+                    worst_violation = violation;
+                    release_index = i;
+                }
+            }
+
+            if (release_index < 0) {
+                x_out = x;
+                return x_out.allFinite();
+            }
+            state[release_index] = FREE;
+        }
+
+        if (p_.verbose) {
+            std::cerr << "Eigen active-set allocator reached max_iter="
+                      << max_iterations << '\n';
+        }
+        x_out = x;
+        return false;
     }
 
 };
