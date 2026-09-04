@@ -150,6 +150,9 @@ Tested on **Ubuntu 18.04 / 20.04** with **ROS Melodic / Noetic** (desktop-full).
 # Core ROS bits
 sudo apt-get install libarmadillo-dev libeigen3-dev
 
+# RViz components and GLFW3 development/runtime libraries
+sudo apt install 'ros-noetic-rviz*' libglfw3-dev libglfw3
+
 # OSQP — required by the QP-based control allocator (latest version from master)
 git clone --recursive https://github.com/osqp/osqp.git
 cd osqp && mkdir build && cd build
